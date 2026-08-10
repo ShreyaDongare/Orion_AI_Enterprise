@@ -5,6 +5,7 @@ from app.routes.projects import blp as ProjectsBlueprint
 from app.routes.reports import blp as ReportsBlueprint
 from app.routes.presentations import blp as PresentationBlueprint
 from app.routes.emails import blp as EmailsBlueprint
+from app.routes.analytics import blp as AnalyticsBlueprint
 
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "ReportsBlueprint",
     "PresentationBlueprint",
     "EmailsBlueprint",
+    "AnalyticsBlueprint",
 ]

@@ -1,5 +1,8 @@
 from typing import Dict, Any
 import logging
+import json
+from datetime import datetime, timezone
+from uuid import UUID
 
 from app.agents.intent_classifier import IntentClassifierAgent
 from app.agents.research_agent import ResearchAgent
@@ -10,6 +13,9 @@ from app.agents.report_agent import ReportAgent
 from app.agents.presentation_agent import PresentationAgent
 from app.agents.email_agent import EmailAgent
 from app.agents.executive_agent import ExecutiveAgent
+
+from app.extensions import db
+from app.models.system import AgentExecution
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +30,6 @@ class WorkflowOrchestrator:
         # ========================================================
 
         self.classifier = IntentClassifierAgent()
-
 
         # ========================================================
         # AVAILABLE AGENTS
@@ -58,6 +63,172 @@ class WorkflowOrchestrator:
 
         }
 
+    # ============================================================
+    # CREATE AGENT EXECUTION RECORD
+    # ============================================================
+
+    def _create_execution(
+        self,
+        agent_type: str,
+        conversation_id: str,
+        input_data: Dict[str, Any],
+    ):
+
+        """
+        Create a real PostgreSQL agent_executions record.
+
+        This allows the Analytics page to display:
+        - Agent
+        - Status
+        - Input
+        - Start time
+        - Completion time
+        - Output
+        - Errors
+        """
+
+        try:
+
+            execution = AgentExecution(
+                agent_type=agent_type,
+                conversation_id=UUID(
+                    str(conversation_id)
+                ),
+                status="running",
+                input_data=self._safe_json(
+                    input_data
+                ),
+                started_at=datetime.now(
+                    timezone.utc
+                ),
+            )
+
+            db.session.add(
+                execution
+            )
+
+            db.session.commit()
+
+            return execution
+
+        except Exception as e:
+
+            logger.error(
+                "Failed to create agent execution record: %s",
+                str(e),
+                exc_info=True,
+            )
+
+            db.session.rollback()
+
+            return None
+
+    # ============================================================
+    # UPDATE AGENT EXECUTION - SUCCESS
+    # ============================================================
+
+    def _complete_execution(
+        self,
+        execution,
+        result,
+    ):
+
+        if execution is None:
+            return
+
+        try:
+
+            execution.status = "completed"
+
+            execution.output_data = (
+                self._safe_json(result)
+            )
+
+            execution.completed_at = (
+                datetime.now(timezone.utc)
+            )
+
+            db.session.commit()
+
+        except Exception as e:
+
+            logger.error(
+                "Failed to complete agent execution: %s",
+                str(e),
+                exc_info=True,
+            )
+
+            db.session.rollback()
+
+    # ============================================================
+    # UPDATE AGENT EXECUTION - FAILURE
+    # ============================================================
+
+    def _fail_execution(
+        self,
+        execution,
+        error,
+    ):
+
+        if execution is None:
+            return
+
+        try:
+
+            execution.status = "failed"
+
+            execution.error_message = str(
+                error
+            )
+
+            execution.completed_at = (
+                datetime.now(timezone.utc)
+            )
+
+            db.session.commit()
+
+        except Exception as e:
+
+            logger.error(
+                "Failed to update failed execution: %s",
+                str(e),
+                exc_info=True,
+            )
+
+            db.session.rollback()
+
+    # ============================================================
+    # SAFE JSON SERIALIZATION
+    # ============================================================
+
+    @staticmethod
+    def _safe_json(data):
+
+        """
+        Make sure JSON database fields only receive
+        serializable data.
+        """
+
+        if data is None:
+            return {}
+
+        try:
+
+            json.dumps(
+                data,
+                default=str
+            )
+
+            return data
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            return {
+                "value": str(data)
+            }
 
     # ============================================================
     # PROCESS REQUEST
@@ -76,15 +247,17 @@ class WorkflowOrchestrator:
         If the frontend explicitly selects an agent,
         that agent is used directly.
 
-        Otherwise, the IntentClassifierAgent determines
+        Otherwise, IntentClassifierAgent determines
         the appropriate agent.
+
+        Every actual agent execution is recorded
+        in PostgreSQL.
         """
 
         logger.info(
             "Processing request | conversation=%s",
             conversation_id
         )
-
 
         # ========================================================
         # GET EXPLICIT AGENT
@@ -94,13 +267,11 @@ class WorkflowOrchestrator:
             "agent_type"
         )
 
-
         if requested_agent:
 
             requested_agent = str(
                 requested_agent
             ).strip().lower()
-
 
         # ========================================================
         # VALID AGENTS
@@ -109,7 +280,6 @@ class WorkflowOrchestrator:
         valid_agents = set(
             self.agents.keys()
         )
-
 
         # ========================================================
         # EXPLICIT AGENT SELECTED
@@ -124,7 +294,6 @@ class WorkflowOrchestrator:
                 intent
             )
 
-
         # ========================================================
         # NO VALID AGENT PROVIDED
         # ========================================================
@@ -135,7 +304,6 @@ class WorkflowOrchestrator:
                 "No valid explicit agent supplied. "
                 "Using IntentClassifierAgent."
             )
-
 
             try:
 
@@ -158,7 +326,6 @@ class WorkflowOrchestrator:
 
                 intent = "chat"
 
-
         # ========================================================
         # SAFETY CHECK
         # ========================================================
@@ -173,7 +340,6 @@ class WorkflowOrchestrator:
 
             intent = "chat"
 
-
         # ========================================================
         # GET AGENT
         # ========================================================
@@ -181,7 +347,6 @@ class WorkflowOrchestrator:
         agent = self.agents.get(
             intent
         )
-
 
         if agent is None:
 
@@ -196,7 +361,6 @@ class WorkflowOrchestrator:
 
             intent = "chat"
 
-
         # ========================================================
         # LOG ROUTING
         # ========================================================
@@ -206,6 +370,39 @@ class WorkflowOrchestrator:
             intent
         )
 
+        # ========================================================
+        # CREATE REAL EXECUTION RECORD
+        # ========================================================
+
+        execution_input = {
+
+            "message":
+                input_text,
+
+            "conversation_id":
+                str(conversation_id),
+
+            "agent_type":
+                intent,
+
+            "rag_collection":
+                kwargs.get(
+                    "rag_collection"
+                ),
+
+            "project_id":
+                kwargs.get(
+                    "project_id"
+                ),
+        }
+
+        execution = (
+            self._create_execution(
+                agent_type=intent,
+                conversation_id=conversation_id,
+                input_data=execution_input,
+            )
+        )
 
         # ========================================================
         # EXECUTE AGENT
@@ -228,7 +425,17 @@ class WorkflowOrchestrator:
                 exc_info=True
             )
 
+            # -----------------------------------------------
+            # SAVE FAILURE TO ANALYTICS
+            # -----------------------------------------------
+
+            self._fail_execution(
+                execution,
+                e
+            )
+
             return {
+
                 "response": (
                     "I encountered an error while "
                     f"executing the {intent} agent: "
@@ -239,8 +446,8 @@ class WorkflowOrchestrator:
                     intent,
 
                 "sources": [],
-            }
 
+            }
 
         # ========================================================
         # SAFETY: NORMALIZE RESULT
@@ -252,17 +459,19 @@ class WorkflowOrchestrator:
         ):
 
             result = {
+
                 "response":
                     str(result)
-            }
 
+            }
 
         # ========================================================
         # SET ACTUAL AGENT
         # ========================================================
 
-        result["agent_used"] = intent
-
+        result["agent_used"] = (
+            intent
+        )
 
         # ========================================================
         # NORMALIZE SOURCES
@@ -275,6 +484,14 @@ class WorkflowOrchestrator:
 
             result["sources"] = []
 
+        # ========================================================
+        # COMPLETE ANALYTICS RECORD
+        # ========================================================
+
+        self._complete_execution(
+            execution,
+            result
+        )
 
         # ========================================================
         # LOG RESULT
@@ -292,6 +509,9 @@ class WorkflowOrchestrator:
             )
         )
 
+        # ========================================================
+        # RETURN RESULT
+        # ========================================================
 
         return result
 

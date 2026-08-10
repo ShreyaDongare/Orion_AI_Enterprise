@@ -75,6 +75,7 @@ def create_app(config_name=None):
         ReportsBlueprint,
         PresentationBlueprint,
         EmailsBlueprint,
+        AnalyticsBlueprint,
     )
 
     api.register_blueprint(
@@ -103,6 +104,10 @@ def create_app(config_name=None):
 
     api.register_blueprint(
         EmailsBlueprint
+    )
+
+    api.register_blueprint(
+        AnalyticsBlueprint
     )
 
     # ========================================================
