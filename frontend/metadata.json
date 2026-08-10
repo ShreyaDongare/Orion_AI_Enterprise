@@ -1,0 +1,6 @@
+{
+  "name": "OrionAI Enterprise",
+  "description": "Enterprise AI Assistant Ecosystem with multi-agent orchestration, Knowledge Base RAG, Analytics, and Workspace management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

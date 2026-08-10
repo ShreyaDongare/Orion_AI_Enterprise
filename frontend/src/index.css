@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #f1f5f9;
+    --bg-surface: #ffffff;
+    --bg-card: #ffffff;
+    --border-subtle: #e5e7eb;
+    --border-strong: #cbd5e1;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+    --brand-primary: #2563eb;
+    --brand-secondary: #3b82f6;
+    --brand-accent: #06b6d4;
+    --input-bg: #ffffff;
+  }
+
+  html, body {
+    background-color: #f8fafc !important;
+    color: #111827 !important;
+    font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.025em;
+    color: #111827;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Comprehensive utility mappings to enforce Light Mode across any legacy slate classes */
+.bg-slate-950,
+.bg-slate-900,
+.bg-slate-900\/90,
+.bg-slate-900\/80,
+.bg-slate-900\/60,
+.bg-slate-900\/50,
+.bg-slate-950\/90,
+.bg-slate-950\/80 {
+  background-color: #ffffff !important;
+}
+
+.bg-slate-950\/40,
+.bg-slate-900\/40,
+.bg-slate-950\/20,
+.bg-slate-900\/20,
+.bg-slate-800\/80,
+.bg-slate-800\/60,
+.bg-slate-800\/50,
+.bg-slate-800\/40,
+.bg-slate-800\/30 {
+  background-color: #f1f5f9 !important;
+}
+
+.bg-slate-800 {
+  background-color: #e2e8f0 !important;
+}
+
+.border-slate-800,
+.border-slate-800\/80,
+.border-slate-800\/60,
+.border-slate-700,
+.border-slate-700\/80,
+.border-slate-700\/60,
+.border-slate-900 {
+  border-color: #e5e7eb !important;
+}
+
+.text-slate-100,
+.text-slate-200 {
+  color: #111827 !important;
+}
+
+.text-slate-300,
+.text-slate-400 {
+  color: #4b5563 !important;
+}
+
+.text-slate-500 {
+  color: #6b7280 !important;
+}
+
+/* Hover States for Light Mode */
+.hover\:bg-slate-800:hover,
+.hover\:bg-slate-900:hover,
+.hover\:bg-slate-800\/60:hover,
+.hover\:bg-slate-800\/40:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.hover\:border-slate-700:hover,
+.hover\:border-slate-800:hover {
+  border-color: #cbd5e1 !important;
+}
+
+/* Gamma/Notion Clean Panels & Cards */
+.glass-panel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.clay-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease-in-out;
+}
+
+.clay-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+}
+
+.glow-blue,
+.glow-cyan {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Custom Minimal Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+
+
