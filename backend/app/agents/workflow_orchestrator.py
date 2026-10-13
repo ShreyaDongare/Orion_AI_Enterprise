@@ -16,6 +16,7 @@ from app.agents.executive_agent import ExecutiveAgent
 
 from app.extensions import db
 from app.models.system import AgentExecution
+from app.models.core import Conversation, Project
 
 
 logger = logging.getLogger(__name__)
@@ -89,11 +90,17 @@ class WorkflowOrchestrator:
 
         try:
 
+            conversation_uuid = UUID(str(conversation_id))
+            conversation = Conversation.query.get(conversation_uuid)
+            owner_id = (
+                conversation.project.owner_id
+                if conversation and conversation.project
+                else None
+            )
             execution = AgentExecution(
                 agent_type=agent_type,
-                conversation_id=UUID(
-                    str(conversation_id)
-                ),
+                user_id=owner_id,
+                conversation_id=conversation_uuid,
                 status="running",
                 input_data=self._safe_json(
                     input_data

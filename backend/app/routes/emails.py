@@ -5,12 +5,20 @@ import re
 from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.extensions import db
 from app.models.output import Email
 
 
 logger = logging.getLogger(__name__)
+
+
+def _current_user_uuid():
+    try:
+        return UUID(str(get_jwt_identity()))
+    except (ValueError, TypeError):
+        abort(401, message="Invalid authenticated user.")
 
 
 # ============================================================
@@ -380,6 +388,7 @@ class EmailCollection(MethodView):
     # GET EMAILS
     # ========================================================
 
+    @jwt_required()
     @blp.response(200)
     def get(self):
 
@@ -387,9 +396,8 @@ class EmailCollection(MethodView):
 
             emails = (
                 Email.query
-                .order_by(
-                    Email.created_at.desc()
-                )
+                .filter(Email.sender_id == _current_user_uuid())
+                .order_by(Email.created_at.desc())
                 .all()
             )
 
@@ -415,6 +423,7 @@ class EmailCollection(MethodView):
     # CREATE EMAIL
     # ========================================================
 
+    @jwt_required()
     @blp.response(201)
     def post(self):
 
@@ -444,31 +453,8 @@ class EmailCollection(MethodView):
                     message="Recipient is required.",
                 )
 
-            # ====================================================
-            # VALIDATE SENDER UUID
-            # ====================================================
-
-            sender_uuid = None
-
-            if payload["sender_id"]:
-
-                try:
-
-                    sender_uuid = UUID(
-                        str(
-                            payload["sender_id"]
-                        )
-                    )
-
-                except (
-                    ValueError,
-                    TypeError,
-                ):
-
-                    abort(
-                        422,
-                        message="Invalid sender_id.",
-                    )
+            # Sender is always the authenticated user; never trust the request body.
+            sender_uuid = _current_user_uuid()
 
             # ====================================================
             # CREATE EMAIL
@@ -535,6 +521,7 @@ class EmailResource(MethodView):
     # GET EMAIL
     # ========================================================
 
+    @jwt_required()
     @blp.response(200)
     def get(
         self,
@@ -557,13 +544,10 @@ class EmailResource(MethodView):
                 message="Invalid email_id.",
             )
 
-        email = (
-            Email.query
-            .filter(
-                Email.id == email_uuid
-            )
-            .first()
-        )
+        email = (Email.query
+                 .filter(Email.id == email_uuid,
+                         Email.sender_id == _current_user_uuid())
+                 .first())
 
         if not email:
 
@@ -580,6 +564,7 @@ class EmailResource(MethodView):
     # DELETE EMAIL
     # ========================================================
 
+    @jwt_required()
     def delete(
         self,
         email_id,
@@ -601,13 +586,10 @@ class EmailResource(MethodView):
                 message="Invalid email_id.",
             )
 
-        email = (
-            Email.query
-            .filter(
-                Email.id == email_uuid
-            )
-            .first()
-        )
+        email = (Email.query
+                 .filter(Email.id == email_uuid,
+                         Email.sender_id == _current_user_uuid())
+                 .first())
 
         if not email:
 

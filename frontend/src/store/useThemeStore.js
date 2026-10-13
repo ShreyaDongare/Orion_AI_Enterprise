@@ -1,32 +1,40 @@
 import { create } from 'zustand';
 
-function applyLightMode() {
+const STORAGE_KEY = 'orion-theme';
+
+function applyTheme(theme) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  root.classList.add('light');
-  root.classList.remove('dark');
-  root.setAttribute('data-theme', 'light');
-  root.style.colorScheme = 'light';
+  root.classList.toggle('dark', theme === 'dark');
+  root.classList.toggle('light', theme === 'light');
+  root.setAttribute('data-theme', theme);
+  root.style.colorScheme = theme;
 }
 
-export const useThemeStore = create((set) => ({
+function readTheme() {
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    // Storage can be unavailable in private/restricted browser contexts.
+  }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+export const useThemeStore = create((set, get) => ({
   theme: 'light',
   resolvedTheme: 'light',
-
-  setTheme: () => {
-    applyLightMode();
-    set({ theme: 'light', resolvedTheme: 'light' });
+  setTheme: (theme) => {
+    const next = theme === 'dark' ? 'dark' : 'light';
+    applyTheme(next);
+    try { window.localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore storage errors */ }
+    set({ theme: next, resolvedTheme: next });
   },
-
-  toggleTheme: () => {
-    applyLightMode();
-    set({ theme: 'light', resolvedTheme: 'light' });
-  },
-
+  toggleTheme: () => get().setTheme(get().resolvedTheme === 'dark' ? 'light' : 'dark'),
   initTheme: () => {
-    applyLightMode();
-    set({ theme: 'light', resolvedTheme: 'light' });
-  }
+    const theme = readTheme();
+    applyTheme(theme);
+    set({ theme, resolvedTheme: theme });
+  },
 }));
-
-

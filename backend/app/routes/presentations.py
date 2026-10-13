@@ -6,6 +6,7 @@ from uuid import UUID
 from flask import send_file, request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from pptx import Presentation as PptxPresentation
 from pptx.dml.color import RGBColor
@@ -15,6 +16,21 @@ from pptx.util import Inches, Pt
 
 from app.extensions import db
 from app.models.output import Presentation
+from app.models.core import Project
+
+
+def _current_user_uuid():
+    try:
+        return UUID(str(get_jwt_identity()))
+    except (ValueError, TypeError):
+        abort(401, message="Invalid authenticated user.")
+
+
+def _owned_presentation_query(presentation_id):
+    return (Presentation.query
+            .join(Project, Presentation.project_id == Project.id)
+            .filter(Presentation.id == presentation_id,
+                    Project.owner_id == _current_user_uuid()))
 
 
 blp = Blueprint(
@@ -1515,12 +1531,15 @@ def generate_pptx(
 @blp.route("")
 class PresentationList(MethodView):
 
+    @jwt_required()
     @blp.response(200)
     def get(self):
         project_id = request.args.get("project_id")
 
         try:
-            query = Presentation.query
+            query = (Presentation.query
+                     .join(Project, Presentation.project_id == Project.id)
+                     .filter(Project.owner_id == _current_user_uuid()))
 
             if project_id:
                 try:
@@ -1562,6 +1581,7 @@ class PresentationList(MethodView):
 @blp.route("/<presentation_id>")
 class PresentationDetail(MethodView):
 
+    @jwt_required()
     @blp.response(200)
     def get(self, presentation_id):
         try:
@@ -1569,28 +1589,21 @@ class PresentationDetail(MethodView):
         except (ValueError, TypeError):
             abort(400, message="Invalid presentation ID.")
 
-        presentation = (
-            Presentation.query
-            .filter(Presentation.id == presentation_uuid)
-            .first()
-        )
+        presentation = _owned_presentation_query(presentation_uuid).first()
 
         if not presentation:
             abort(404, message="Presentation not found.")
 
         return serialize_presentation(presentation)
 
+    @jwt_required()
     def delete(self, presentation_id):
         try:
             presentation_uuid = UUID(str(presentation_id))
         except (ValueError, TypeError):
             abort(400, message="Invalid presentation ID.")
 
-        presentation = (
-            Presentation.query
-            .filter(Presentation.id == presentation_uuid)
-            .first()
-        )
+        presentation = _owned_presentation_query(presentation_uuid).first()
 
         if not presentation:
             abort(404, message="Presentation not found.")
@@ -1653,17 +1666,14 @@ class PresentationDetail(MethodView):
 @blp.route("/<presentation_id>/download")
 class PresentationDownload(MethodView):
 
+    @jwt_required()
     def get(self, presentation_id):
         try:
             presentation_uuid = UUID(str(presentation_id))
         except (ValueError, TypeError):
             abort(400, message="Invalid presentation ID.")
 
-        presentation = (
-            Presentation.query
-            .filter(Presentation.id == presentation_uuid)
-            .first()
-        )
+        presentation = _owned_presentation_query(presentation_uuid).first()
 
         if not presentation:
             abort(404, message="Presentation not found.")

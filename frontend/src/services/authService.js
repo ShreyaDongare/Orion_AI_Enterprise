@@ -16,7 +16,8 @@ export const authService = {
       );
     }
 
-    return response.data;
+    const user = await this.getCurrentUser();
+    return { ...response.data, user };
   },
 
   async login(credentials) {
@@ -34,7 +35,8 @@ export const authService = {
       );
     }
 
-    return response.data;
+    const user = await this.getCurrentUser();
+    return { ...response.data, user };
   },
 
   async getCurrentUser() {

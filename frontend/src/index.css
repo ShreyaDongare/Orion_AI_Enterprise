@@ -145,3 +145,166 @@
 
 
 
+
+/* Polished visual system: accessible theme tokens, gradients, and motion. */
+:root {
+  color-scheme: light;
+  --page-bg: #f7f9ff;
+  --surface: #ffffff;
+  --surface-raised: rgba(255,255,255,.88);
+  --surface-muted: #f0f4ff;
+  --line: #e2e8f0;
+  --ink: #111827;
+  --ink-soft: #526079;
+  --ambient-a: rgba(59,130,246,.12);
+  --ambient-b: rgba(168,85,247,.09);
+}
+html { scroll-behavior: smooth; }
+body { background: var(--page-bg); transition: background-color .25s ease, color .25s ease; }
+::selection { background: rgba(99,102,241,.25); }
+.theme-toggle { color: var(--ink); background: var(--surface-raised); border-color: var(--line); box-shadow: 0 4px 16px rgba(15,23,42,.06); }
+.theme-toggle:hover { border-color: #818cf8; transform: translateY(-1px); }
+
+/* Dark mode applies to both the landing page and authenticated workspace. */
+html.dark {
+  color-scheme: dark;
+  --page-bg: #080d19;
+  --surface: #111827;
+  --surface-raised: rgba(17,24,39,.92);
+  --surface-muted: #172033;
+  --line: #293449;
+  --ink: #f1f5f9;
+  --ink-soft: #a5b4cc;
+  --ambient-a: rgba(59,130,246,.18);
+  --ambient-b: rgba(168,85,247,.14);
+}
+html.dark body, html.dark #root { background-color: var(--page-bg) !important; color: var(--ink) !important; }
+html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark .font-heading { color: var(--ink); }
+html.dark .bg-white, html.dark .bg-white\/90, html.dark .bg-white\/95 { background-color: #111827 !important; }
+html.dark .bg-\[\#F8FAFC\], html.dark .bg-slate-50, html.dark .bg-gray-50 { background-color: #080d19 !important; }
+html.dark .bg-slate-100, html.dark .bg-slate-50\/80, html.dark .bg-blue-50 { background-color: #172033 !important; }
+html.dark .bg-slate-200 { background-color: #263248 !important; }
+html.dark .text-slate-900, html.dark .text-slate-800, html.dark .text-gray-900, html.dark .text-gray-800 { color: #f1f5f9 !important; }
+html.dark .text-slate-700, html.dark .text-slate-600, html.dark .text-slate-500, html.dark .text-gray-700, html.dark .text-gray-600 { color: #b6c2d5 !important; }
+html.dark .text-slate-400, html.dark .text-slate-300 { color: #94a3b8 !important; }
+html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-slate-300, html.dark .border-gray-200 { border-color: #293449 !important; }
+html.dark input, html.dark textarea, html.dark select { background-color: #0e1626 !important; color: #f1f5f9 !important; border-color: #344158 !important; }
+html.dark input::placeholder, html.dark textarea::placeholder { color: #8493aa !important; }
+html.dark .glass-panel, html.dark .clay-card { background: #111827; border-color: #293449; box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+html.dark .theme-toggle { color: #e2e8f0; background: #111827; border-color: #344158; box-shadow: 0 4px 18px rgba(0,0,0,.22); }
+html.dark .shadow-xs, html.dark .shadow-sm { --tw-shadow-color: rgba(0,0,0,.25); }
+html.dark header.bg-white\/90, html.dark header.bg-white\/95 { background-color: rgba(8,13,25,.88) !important; backdrop-filter: blur(18px); }
+
+/* Landing page atmosphere and small, restrained animations. */
+.landing-shell { isolation: isolate; background: radial-gradient(ellipse at 12% 0%, var(--ambient-a), transparent 34%), radial-gradient(ellipse at 88% 10%, var(--ambient-b), transparent 30%), var(--page-bg); }
+.landing-shell::before { content: ''; position: absolute; inset: 0 0 auto; height: 760px; z-index: -1; pointer-events: none; background-image: radial-gradient(rgba(100,116,139,.17) .7px, transparent .7px); background-size: 19px 19px; mask-image: linear-gradient(to bottom, black, transparent); }
+html.dark .landing-shell { background: radial-gradient(ellipse at 12% 0%, var(--ambient-a), transparent 34%), radial-gradient(ellipse at 88% 10%, var(--ambient-b), transparent 30%), #080d19; }
+html.dark .landing-shell::before { background-image: radial-gradient(rgba(148,163,184,.15) .7px, transparent .7px); }
+@keyframes float-orion { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+@keyframes gradient-shift { 0%,100% { background-position: 0% 50% } 50% { background-position: 100% 50% } }
+.orion-float { animation: float-orion 6s ease-in-out infinite; }
+.orion-gradient-text { background: linear-gradient(110deg,#2563eb 0%,#7c3aed 45%,#0891b2 90%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent !important; animation: gradient-shift 8s ease-in-out infinite; }
+html.dark .orion-gradient-text { background-image: linear-gradient(110deg,#60a5fa 0%,#c4b5fd 48%,#67e8f9 100%); background-clip: text; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+
+/* ==========================================================
+   DARK MODE CONTRAST FIXES
+   Keep the existing light theme unchanged. The selectors below
+   only apply when the theme store adds .dark to the html element.
+   ========================================================== */
+
+html.dark,
+html.dark body {
+  color-scheme: dark;
+  background-color: #080d19 !important;
+  color: #e5edf8 !important;
+}
+
+/* Sidebar navigation: prevent light hover pills and washed-out text. */
+html.dark aside a:hover,
+html.dark aside button:hover,
+html.dark nav a:hover,
+html.dark nav button:hover {
+  background-color: #1b263a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html.dark aside a:hover svg,
+html.dark aside button:hover svg,
+html.dark nav a:hover svg,
+html.dark nav button:hover svg {
+  color: #cbd5e1 !important;
+}
+
+html.dark aside a[aria-current="page"],
+html.dark nav a[aria-current="page"] {
+  background-color: #172554 !important;
+  color: #bfdbfe !important;
+  border-color: #1d4ed8 !important;
+}
+
+html.dark aside a[aria-current="page"] svg,
+html.dark nav a[aria-current="page"] svg {
+  color: #60a5fa !important;
+}
+
+/* Knowledge Base document rows: dark surface with readable title and metadata. */
+html.dark table tbody tr,
+html.dark [role="table"] [role="row"] {
+  color: #e2e8f0 !important;
+}
+
+html.dark table tbody tr:hover,
+html.dark [role="table"] [role="row"]:hover {
+  background-color: #1b263a !important;
+  color: #f8fafc !important;
+}
+
+html.dark table tbody tr:hover td,
+html.dark [role="table"] [role="row"]:hover [role="cell"] {
+  color: #e2e8f0 !important;
+}
+
+html.dark table tbody tr td,
+html.dark table tbody tr th {
+  border-color: #334155 !important;
+}
+
+/* Tailwind's light slate hover utility must not turn white in dark mode. */
+html.dark .hover\\:bg-slate-50:hover,
+html.dark .hover\\:bg-slate-100:hover,
+html.dark [class~="hover:bg-slate-200/50"]:hover {
+  background-color: #1b263a !important;
+}
+
+/* Keep filenames and icons visible on dark document surfaces. */
+html.dark table a,
+html.dark table button,
+html.dark table .text-slate-900,
+html.dark table .text-slate-800,
+html.dark table .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+html.dark table tbody tr:hover a,
+html.dark table tbody tr:hover button {
+  color: #f8fafc !important;
+}
+
+html.dark table svg {
+  color: #60a5fa;
+}
+
+/* Support cards/rows that use a light slate surface directly. */
+html.dark .bg-slate-50 {
+  background-color: #111827 !important;
+}
+html.dark .bg-slate-50:hover {
+  background-color: #1b263a !important;
+}
+html.dark .border-slate-200,
+html.dark .border-slate-200\/80 {
+  border-color: #334155 !important;
+}

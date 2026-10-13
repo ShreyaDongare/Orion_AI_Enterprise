@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 
 export default function Settings() {
   const { user } = useAuthStore();
+  const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.name || 'User';
+  const displayRole = user?.role || 'User';
 
   const handleSave = () => {
     toast.success('Enterprise configuration saved successfully');
@@ -106,14 +108,14 @@ export default function Settings() {
                 <User className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold font-heading text-slate-900">{user?.first_name} {user?.last_name}</h3>
-                <p className="text-xs text-blue-600 font-medium">{user?.role}</p>
+                <h3 className="text-sm font-bold font-heading text-slate-900">{displayName}</h3>
+                <p className="text-xs text-blue-600 font-medium">{displayRole}</p>
               </div>
             </div>
 
             <div className="space-y-2 text-xs text-slate-600 font-mono">
-              <p><strong className="text-slate-900 font-sans">Email:</strong> {user?.email}</p>
-              <p><strong className="text-slate-900 font-sans">Security Clearance:</strong> Level 5 (Executive Admin)</p>
+              <p><strong className="text-slate-900 font-sans">Email:</strong> {user?.email || 'Not available'}</p>
+              <p><strong className="text-slate-900 font-sans">Account Role:</strong> {displayRole}</p>
               <p><strong className="text-slate-900 font-sans">Status:</strong> <span className="text-emerald-600 font-bold">Authenticated</span></p>
             </div>
           </Card>

@@ -37,6 +37,9 @@ export default function Sidebar() {
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
+  const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.name || user?.email || 'User';
+  const displayRole = user?.role || 'User';
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -110,13 +113,13 @@ export default function Sidebar() {
             isSidebarCollapsed ? 'justify-center' : ''
           }`}
         >
-          <Avatar name={user?.first_name || 'Alex Vance'} src={user?.avatar} size="sm" />
+          <Avatar name={displayName} src={user?.avatar} size="sm" />
           {!isSidebarCollapsed && (
             <div className="truncate flex-1">
               <p className="text-xs font-semibold text-slate-900 truncate">
-                {user?.first_name} {user?.last_name}
+                {displayName}
               </p>
-              <p className="text-[10px] text-slate-500 truncate font-mono">{user?.role || 'Admin'}</p>
+              <p className="text-[10px] text-slate-500 truncate font-mono">{displayRole}</p>
             </div>
           )}
           {!isSidebarCollapsed && (

@@ -3,13 +3,22 @@ from datetime import datetime
 
 from flask.views import MethodView
 from flask_smorest import Blueprint
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from uuid import UUID
 from sqlalchemy import text
 
 from app.extensions import db
 
 
 logger = logging.getLogger(__name__)
+
+
+def _current_user_uuid():
+    try:
+        return UUID(str(get_jwt_identity()))
+    except (ValueError, TypeError):
+        from flask_smorest import abort
+        abort(401, message="Invalid authenticated user.")
 
 
 # ============================================================
@@ -74,7 +83,7 @@ def get_token_totals():
 # TOKEN CHART DATA
 # ============================================================
 
-def get_token_usage_by_month():
+def get_token_usage_by_month(user_uuid):
     """
     Prefer real historical analytics events.
 
@@ -97,8 +106,9 @@ def get_token_usage_by_month():
                     event_data
                 FROM analytics
                 WHERE event_type = 'llm_token_usage'
+                  AND user_id = :user_id
                 ORDER BY month ASC
-            """)
+            """), {"user_id": user_uuid}
         ).mappings().all()
 
         # ----------------------------------------------------
@@ -217,7 +227,7 @@ def get_token_usage_by_month():
 # AGENT PERFORMANCE
 # ============================================================
 
-def get_agent_performance():
+def get_agent_performance(user_uuid):
 
     try:
 
@@ -240,9 +250,10 @@ def get_agent_performance():
                 FROM agent_executions
                 WHERE started_at IS NOT NULL
                   AND completed_at IS NOT NULL
+                  AND user_id = :user_id
                 GROUP BY agent_type
                 ORDER BY queries DESC
-            """)
+            """), {"user_id": user_uuid}
         ).mappings().all()
 
         result = []
@@ -279,155 +290,87 @@ def get_agent_performance():
 # PLATFORM COUNTS
 # ============================================================
 
-def get_platform_counts():
+def get_platform_counts(user_uuid):
+    """Counts visible to the current user only."""
+    from app.models.core import Project, Conversation
+    from app.models.knowledge import KnowledgeCollection, Document
+    from app.models.output import Report, Presentation, Email
 
-    tables = {
-        "projects": "projects",
-        "reports": "reports",
-        "presentations": "presentations",
-        "emails": "emails",
-        "documents": "documents",
+    project_ids = db.session.query(Project.id).filter(Project.owner_id == user_uuid).subquery()
+    collection_ids = db.session.query(KnowledgeCollection.id).filter(KnowledgeCollection.owner_id == user_uuid).subquery()
+    return {
+        "projects": Project.query.filter(Project.owner_id == user_uuid).count(),
+        "reports": Report.query.filter(Report.project_id.in_(project_ids)).count(),
+        "presentations": Presentation.query.filter(Presentation.project_id.in_(project_ids)).count(),
+        "emails": Email.query.filter(Email.sender_id == user_uuid).count(),
+        "documents": Document.query.filter(Document.collection_id.in_(collection_ids)).count(),
     }
 
-    result = {}
 
-    for key, table in tables.items():
-
-        try:
-
-            count = db.session.execute(
-                text(
-                    f'SELECT COUNT(*) FROM "{table}"'
-                )
-            ).scalar()
-
-            result[key] = int(
-                count or 0
-            )
-
-        except Exception as exc:
-
-            logger.warning(
-                "Unable to count %s: %s",
-                table,
-                exc
-            )
-
-            result[key] = 0
-
-    return result
-
-
-# ============================================================
 # SUMMARY
 # ============================================================
 
-def get_summary():
+def get_summary(user_uuid):
+    """Return the existing dashboard summary schema, scoped to one user."""
+    from app.models.system import AgentExecution
 
-    input_tokens, output_tokens = (
-        get_token_totals()
-    )
-
-    total_tokens = (
-        input_tokens +
-        output_tokens
-    )
-
-    # --------------------------------------------------------
-    # AVG LATENCY
-    # --------------------------------------------------------
+    executions = AgentExecution.query.filter(AgentExecution.user_id == user_uuid)
+    total = executions.count()
+    completed = executions.filter(AgentExecution.status == "completed").count()
+    success_rate = (completed / total * 100) if total else 0
 
     try:
-
         avg_latency = db.session.execute(
             text("""
-                SELECT
-                    COALESCE(
-                        AVG(
-                            EXTRACT(
-                                EPOCH FROM (
-                                    completed_at -
-                                    started_at
-                                )
-                            )
-                        ),
-                        0
-                    )
+                SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - started_at))), 0)
                 FROM agent_executions
-                WHERE started_at IS NOT NULL
+                WHERE user_id = :user_id
+                  AND started_at IS NOT NULL
                   AND completed_at IS NOT NULL
-            """)
+            """), {"user_id": user_uuid}
         ).scalar()
-
-        avg_latency = number(
-            avg_latency
-        )
-
+        avg_latency = number(avg_latency)
     except Exception:
-
+        logger.exception("Failed to calculate user-scoped average latency")
         avg_latency = 0
 
-    # --------------------------------------------------------
-    # SUCCESS RATE
-    # --------------------------------------------------------
-
+    # Only count token events associated with this user. Global API-key totals
+    # are intentionally not presented as personal usage.
+    input_tokens = 0
+    output_tokens = 0
     try:
-
-        stats = db.session.execute(
+        rows = db.session.execute(
             text("""
-                SELECT
-                    COUNT(*) AS total,
-                    COUNT(*) FILTER (
-                        WHERE status = 'completed'
-                    ) AS completed
-                FROM agent_executions
-            """)
-        ).mappings().first()
-
-        total = int(
-            stats["total"] or 0
-        )
-
-        completed = int(
-            stats["completed"] or 0
-        )
-
-        success_rate = (
-            (completed / total) * 100
-            if total > 0
-            else 0
-        )
-
+                SELECT event_data FROM analytics
+                WHERE event_type = 'llm_token_usage'
+                  AND user_id = :user_id
+            """), {"user_id": user_uuid}
+        ).mappings().all()
+        import json
+        for row in rows:
+            data = row["event_data"]
+            if isinstance(data, str):
+                try:
+                    data = json.loads(data)
+                except Exception:
+                    continue
+            if isinstance(data, dict):
+                input_tokens += int(number(data.get("input_tokens", data.get("prompt_tokens", 0))))
+                output_tokens += int(number(data.get("output_tokens", data.get("completion_tokens", 0))))
     except Exception:
-
-        success_rate = 0
+        logger.exception("Failed to calculate user-scoped token totals")
 
     return {
-        "totalTokens": total_tokens,
-
-        "avgLatency": round(
-            avg_latency,
-            2
-        ),
-
-        "retrievalAccuracy": round(
-            success_rate,
-            2
-        ),
-
-        # No fabricated business metrics.
+        "totalTokens": input_tokens + output_tokens,
+        "avgLatency": round(avg_latency, 2),
+        "retrievalAccuracy": round(success_rate, 2),
         "monthlySavings": 0,
-
         "tokenChange": 0,
         "latencyChange": 0,
         "retrievalChange": 0,
         "roi": 0,
     }
 
-
-# ============================================================
-# ANALYTICS ENDPOINT
-# ============================================================
 
 @blp.route("")
 class AnalyticsResource(MethodView):
@@ -438,16 +381,16 @@ class AnalyticsResource(MethodView):
         try:
 
             return {
-                "summary": get_summary(),
+                "summary": get_summary(_current_user_uuid()),
 
                 "tokenUsage":
-                    get_token_usage_by_month(),
+                    get_token_usage_by_month(_current_user_uuid()),
 
                 "agentPerformance":
-                    get_agent_performance(),
+                    get_agent_performance(_current_user_uuid()),
 
                 "activity":
-                    get_platform_counts(),
+                    get_platform_counts(_current_user_uuid()),
 
                 "generatedAt":
                     datetime.utcnow().isoformat(),

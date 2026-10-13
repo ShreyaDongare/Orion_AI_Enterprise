@@ -328,13 +328,16 @@ class CurrentUser(MethodView):
                 message="User not found."
             )
 
+        role_names = [
+            assignment.role.name
+            for assignment in (user.roles or [])
+            if assignment.role is not None
+        ]
+
         return {
             "id": str(user.id),
             "email": user.email,
-            "first_name": (
-                user.first_name or ""
-            ),
-            "last_name": (
-                user.last_name or ""
-            ),
+            "first_name": user.first_name or "",
+            "last_name": user.last_name or "",
+            "role": role_names[0] if role_names else "User",
         }

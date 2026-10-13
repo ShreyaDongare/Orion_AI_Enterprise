@@ -174,7 +174,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 relative overflow-x-hidden font-sans">
+    <div className="landing-shell min-h-screen bg-[#F8FAFC] text-slate-900 relative overflow-x-hidden font-sans">
       <LandingNavbar />
 
       {/* ================= HERO SECTION ================= */}
@@ -196,7 +196,7 @@ export default function LandingPage() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 font-heading max-w-4xl mx-auto leading-[1.1]"
         >
-          An enterprise AI platform for <span className="text-blue-600">autonomous teams</span>
+          An enterprise AI platform for <span className="orion-gradient-text">autonomous teams</span>
         </motion.h1>
 
         <motion.p

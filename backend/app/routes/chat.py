@@ -6,6 +6,7 @@ from html import escape
 from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.schemas.api_schemas import (
     ChatRequestSchema,
@@ -23,6 +24,20 @@ from app.extensions import db
 
 
 logger = logging.getLogger(__name__)
+
+
+def _current_user_uuid():
+    try:
+        return UUID(str(get_jwt_identity()))
+    except (ValueError, TypeError):
+        abort(401, message="Invalid authenticated user.")
+
+
+def _owned_conversation_query(conversation_id):
+    return (Conversation.query
+            .join(Project, Conversation.project_id == Project.id)
+            .filter(Conversation.id == conversation_id,
+                    Project.owner_id == _current_user_uuid()))
 
 
 # ============================================================
@@ -280,6 +295,7 @@ class Conversations(MethodView):
     # CREATE CONVERSATION
     # ========================================================
 
+    @jwt_required()
     @blp.response(201)
     def post(self):
 
@@ -330,15 +346,18 @@ class Conversations(MethodView):
                     message="Invalid project_id."
                 )
 
-            project = Project.query.get(
-                project_uuid
-            )
+            project = Project.query.filter_by(
+                id=project_uuid,
+                owner_id=_current_user_uuid(),
+            ).first()
 
         else:
 
-            # Local development fallback:
-            # use the first real project in PostgreSQL.
-            project = Project.query.first()
+            # Never attach a conversation to another user's project.
+            project = (Project.query
+                       .filter_by(owner_id=_current_user_uuid())
+                       .order_by(Project.created_at.asc())
+                       .first())
 
         if not project:
 
@@ -407,6 +426,7 @@ class Conversations(MethodView):
     # GET CONVERSATIONS
     # ========================================================
 
+    @jwt_required()
     @blp.response(200)
     def get(self):
 
@@ -418,7 +438,9 @@ class Conversations(MethodView):
             "project_id"
         )
 
-        query = Conversation.query
+        query = (Conversation.query
+                 .join(Project, Conversation.project_id == Project.id)
+                 .filter(Project.owner_id == _current_user_uuid()))
 
         if project_id:
 
@@ -504,6 +526,7 @@ class Conversations(MethodView):
 )
 class ConversationMessages(MethodView):
 
+    @jwt_required()
     @blp.response(200)
     def get(
         self,
@@ -534,11 +557,7 @@ class ConversationMessages(MethodView):
         # Find conversation
         # ----------------------------------------------------
 
-        conversation = (
-            Conversation.query.get(
-                conversation_uuid
-            )
-        )
+        conversation = _owned_conversation_query(conversation_uuid).first()
 
         if not conversation:
 
@@ -592,6 +611,7 @@ class ConversationMessages(MethodView):
 )
 class DeleteConversation(MethodView):
 
+    @jwt_required()
     @blp.response(204)
     def delete(
         self,
@@ -614,11 +634,7 @@ class DeleteConversation(MethodView):
                 message="Invalid conversation_id."
             )
 
-        conversation = (
-            Conversation.query.get(
-                conversation_uuid
-            )
-        )
+        conversation = _owned_conversation_query(conversation_uuid).first()
 
         if not conversation:
 
@@ -679,10 +695,7 @@ class ChatMessage(MethodView):
         schema=ErrorResponseSchema
     )
 
-    # JWT remains disabled for local testing.
-    # Enable this later when frontend authentication
-    # is fully connected.
-
+    @jwt_required()
     def post(
         self,
         chat_data
@@ -747,11 +760,7 @@ class ChatMessage(MethodView):
         # FIND REAL POSTGRESQL CONVERSATION
         # ====================================================
 
-        conversation = (
-            Conversation.query.get(
-                conversation_uuid
-            )
-        )
+        conversation = _owned_conversation_query(conversation_uuid).first()
 
         if not conversation:
 

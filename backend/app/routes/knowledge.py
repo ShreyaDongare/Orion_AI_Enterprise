@@ -6,6 +6,7 @@ from uuid import UUID
 from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.extensions import db
 from app.models.knowledge import (
@@ -17,6 +18,15 @@ from app.rag.ingestion import RAGIngestor
 
 
 logger = logging.getLogger(__name__)
+
+
+def _current_user_uuid():
+    """Return the verified JWT subject as a UUID or reject the request."""
+    user_id = get_jwt_identity()
+    try:
+        return UUID(str(user_id))
+    except (ValueError, TypeError):
+        abort(401, message="Invalid authenticated user.")
 
 
 # ============================================================
@@ -42,6 +52,7 @@ class KnowledgeCollections(MethodView):
     # GET COLLECTIONS
     # ========================================================
 
+    @jwt_required()
     @blp.response(200)
     def get(self):
         """
@@ -49,11 +60,11 @@ class KnowledgeCollections(MethodView):
         from PostgreSQL.
         """
 
+        user_uuid = _current_user_uuid()
         collections = (
             KnowledgeCollection.query
-            .order_by(
-                KnowledgeCollection.created_at.desc()
-            )
+            .filter(KnowledgeCollection.owner_id == user_uuid)
+            .order_by(KnowledgeCollection.created_at.desc())
             .all()
         )
 
@@ -181,6 +192,7 @@ class KnowledgeCollections(MethodView):
     # CREATE COLLECTION
     # ========================================================
 
+    @jwt_required()
     @blp.response(201)
     def post(self):
         """
@@ -224,6 +236,7 @@ class KnowledgeCollections(MethodView):
         collection = KnowledgeCollection(
             name=name,
             description=description,
+            owner_id=_current_user_uuid(),
         )
 
         db.session.add(collection)
@@ -292,6 +305,7 @@ class KnowledgeDocuments(MethodView):
     # UPLOAD DOCUMENT
     # ========================================================
 
+    @jwt_required()
     @blp.response(201)
     def post(self):
         """
@@ -340,9 +354,12 @@ class KnowledgeDocuments(MethodView):
         # ----------------------------------------------------
 
         collection = (
-            KnowledgeCollection.query.get(
-                collection_uuid
+            KnowledgeCollection.query
+            .filter(
+                KnowledgeCollection.id == collection_uuid,
+                KnowledgeCollection.owner_id == _current_user_uuid(),
             )
+            .first()
         )
 
         if not collection:
@@ -574,6 +591,8 @@ class KnowledgeDocuments(MethodView):
                             collection.id
                         ),
 
+                        "user_id": str(_current_user_uuid()),
+
                         "document_version_id": str(
                             document_version.id
                         ),
@@ -726,6 +745,7 @@ class KnowledgeDocument(MethodView):
     # DELETE DOCUMENT
     # ========================================================
 
+    @jwt_required()
     @blp.response(204)
     def delete(
         self,
@@ -759,8 +779,14 @@ class KnowledgeDocument(MethodView):
         # Find document
         # ----------------------------------------------------
 
-        document = Document.query.get(
-            document_uuid
+        document = (
+            Document.query
+            .join(KnowledgeCollection, Document.collection_id == KnowledgeCollection.id)
+            .filter(
+                Document.id == document_uuid,
+                KnowledgeCollection.owner_id == _current_user_uuid(),
+            )
+            .first()
         )
 
         if not document:

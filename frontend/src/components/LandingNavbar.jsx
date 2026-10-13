@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, Menu, X, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
+import ThemeToggle from './ThemeToggle';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function LandingNavbar() {
@@ -72,6 +73,7 @@ export default function LandingNavbar() {
 
         {/* Action Buttons */}
         <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle compact />
           {isAuthenticated ? (
             <Button
               variant="blue"
@@ -103,12 +105,18 @@ export default function LandingNavbar() {
         </div>
 
         {/* Mobile Menu Toggle */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900"
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle compact />
+          <button
+            type="button"
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu Overlay */}

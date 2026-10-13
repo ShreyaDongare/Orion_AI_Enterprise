@@ -5,6 +5,7 @@ from app.agents.base_agent import BaseAgent
 from app.prompts.agent_prompts import KNOWLEDGE_AGENT_PROMPT
 from app.agents.memory import ConversationMemory
 from app.rag.retrieval import RAGRetriever
+from app.models.core import Conversation, Project
 
 from langchain_core.output_parsers import StrOutputParser
 
@@ -49,9 +50,21 @@ class KnowledgeAgent(BaseAgent):
             # 1. RETRIEVE RELEVANT DOCUMENTS
             # ====================================================
 
+            # Resolve the authenticated tenant from the persisted conversation.
+            # A missing owner fails closed rather than searching the shared index.
+            conversation = (Conversation.query
+                .join(Project, Conversation.project_id == Project.id)
+                .filter(Conversation.id == conversation_id)
+                .first())
+            owner_id = str(conversation.project.owner_id) if conversation and conversation.project else None
+            if not owner_id:
+                logger.warning("Knowledge retrieval skipped: conversation has no resolvable owner")
+                return {"response": "I cannot access a user-scoped knowledge base for this conversation.", "context_used": "", "sources": []}
+
             results = self.retriever.search(
                 query=input_text,
-                top_k=5
+                top_k=5,
+                filter_metadata={"user_id": owner_id},
             )
 
             logger.info(

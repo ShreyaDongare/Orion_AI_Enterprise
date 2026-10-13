@@ -25,6 +25,7 @@ export default function TopNavbar({ onOpenNotifications }) {
   const [projectDropdown, setProjectDropdown] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
 
+  const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() || user?.name || user?.email || 'User';
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -115,7 +116,7 @@ export default function TopNavbar({ onOpenNotifications }) {
             onClick={() => setUserDropdown(!userDropdown)}
             className="flex items-center gap-2 p-1 rounded-full border border-slate-200 hover:border-slate-300 transition-all"
           >
-            <Avatar name={user?.first_name || 'Alex Vance'} src={user?.avatar} size="sm" />
+            <Avatar name={displayName} src={user?.avatar} size="sm" />
           </button>
 
           <AnimatePresence>
@@ -127,7 +128,7 @@ export default function TopNavbar({ onOpenNotifications }) {
                 className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-slate-200 p-2 shadow-lg z-50 space-y-1"
               >
                 <div className="p-2.5 border-b border-slate-100">
-                  <p className="text-xs font-semibold text-slate-900">{user?.first_name} {user?.last_name}</p>
+                  <p className="text-xs font-semibold text-slate-900">{displayName}</p>
                   <p className="text-[10px] text-slate-500 truncate font-mono">{user?.email}</p>
                 </div>
                 <button
